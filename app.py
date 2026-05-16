@@ -177,5 +177,5 @@ if __name__ == '__main__':
     print('  Open: http://localhost:5001')
     print('=' * 55)
     import os
-port = int(os.environ.get('PORT', 5001))
+port = int(os.environ.get('PORT', 8080))
 socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
