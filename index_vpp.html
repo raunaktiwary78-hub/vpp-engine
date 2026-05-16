@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VPP Orchestration Engine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{--bg:#070b14;--bg2:#0d1424;--bg3:#111827;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--accent:#00d4ff;--green:#00e676;--red:#ff5252;--yellow:#ffd740;--orange:#ff9800;--text:#e2e8f0;--text2:#64748b;--text3:#334155;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 20px 40px;}
+.header{display:flex;align-items:center;justify-content:space-between;padding:16px 0 18px;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-icon{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,rgba(0,212,255,0.15),rgba(0,212,255,0.3));border:1px solid rgba(0,212,255,0.3);display:flex;align-items:center;justify-content:center;}
+.logo-text{font-size:17px;font-weight:600;color:var(--accent);}
+.logo-sub{font-size:11px;color:var(--text2);margin-top:1px;}
+.header-right{display:flex;align-items:center;gap:14px;}
+.time-badge{font-size:12px;font-family:monospace;color:var(--text2);background:var(--bg2);border:1px solid var(--border2);padding:4px 12px;border-radius:20px;}
+.status-pill{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--red);}
+.dot.on{background:var(--green);box-shadow:0 0 8px var(--green);}
+.controls{display:flex;gap:10px;margin-bottom:20px;}
+.btn{padding:9px 22px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:system-ui;}
+.btn-start{background:var(--green);color:#000;}
+.btn-stop{background:transparent;color:var(--red);border:1px solid var(--red);}
+.btn-reset{background:transparent;color:var(--text2);border:1px solid var(--border2);}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,255,0.15),transparent);}
+.card-title{font-size:10px;font-weight:600;letter-spacing:0.09em;color:var(--text3);text-transform:uppercase;margin-bottom:12px;}
+.metric-val{font-size:28px;font-weight:700;font-family:monospace;color:var(--accent);line-height:1;}
+.metric-unit{font-size:12px;color:var(--text2);margin-top:4px;}
+.metric-val.green{color:var(--green);}
+.metric-val.red{color:var(--red);}
+.metric-val.yellow{color:var(--yellow);}
+.metric-val.orange{color:var(--orange);}
+.price-indicator{display:flex;align-items:center;gap:8px;margin-top:8px;}
+.price-bar{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.price-fill{height:100%;border-radius:3px;transition:width 0.5s,background 0.5s;}
+.price-label{font-size:11px;font-family:monospace;color:var(--text2);min-width:60px;}
+.action-row{display:flex;gap:8px;margin-top:10px;}
+.action-badge{flex:1;padding:8px;border-radius:8px;text-align:center;font-size:12px;font-weight:600;}
+.badge-charge{background:rgba(0,230,118,0.1);color:var(--green);border:1px solid rgba(0,230,118,0.2);}
+.badge-discharge{background:rgba(255,152,0,0.1);color:var(--orange);border:1px solid rgba(255,152,0,0.2);}
+.badge-idle{background:rgba(100,116,139,0.1);color:var(--text2);border:1px solid var(--border2);}
+/* ML Section */
+.ml-action-box{padding:12px 16px;border-radius:10px;margin-bottom:12px;border:1px solid;}
+.ml-action-box.sell{background:rgba(255,82,82,0.08);border-color:rgba(255,82,82,0.3);}
+.ml-action-box.buy{background:rgba(0,230,118,0.08);border-color:rgba(0,230,118,0.3);}
+.ml-action-box.hold{background:rgba(255,215,64,0.08);border-color:rgba(255,215,64,0.3);}
+.ml-action-title{font-size:18px;font-weight:700;font-family:monospace;}
+.ml-action-title.sell{color:var(--red);}
+.ml-action-title.buy{color:var(--green);}
+.ml-action-title.hold{color:var(--yellow);}
+.ml-reason{font-size:12px;color:var(--text2);margin-top:4px;}
+.pred-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}
+.pred-cell{background:var(--bg3);border-radius:8px;padding:8px 4px;text-align:center;border:1px solid var(--border);}
+.pred-cell.sell{border-color:rgba(255,82,82,0.3);background:rgba(255,82,82,0.05);}
+.pred-cell.buy{border-color:rgba(0,230,118,0.3);background:rgba(0,230,118,0.05);}
+.pred-hour{font-size:10px;color:var(--text2);}
+.pred-price{font-size:14px;font-weight:700;font-family:monospace;margin:3px 0;}
+.pred-badge{font-size:9px;font-weight:600;padding:1px 5px;border-radius:4px;}
+.pred-badge.SELL{background:rgba(255,82,82,0.2);color:var(--red);}
+.pred-badge.BUY{background:rgba(0,230,118,0.2);color:var(--green);}
+.pred-badge.HOLD{background:rgba(255,215,64,0.2);color:var(--yellow);}
+.pred-conf{font-size:9px;color:var(--text3);margin-top:2px;}
+/* Weather */
+.weather-row{display:flex;align-items:center;gap:10px;margin-top:8px;padding:8px 12px;background:var(--bg3);border-radius:8px;}
+.weather-temp{font-size:22px;font-weight:700;color:var(--orange);}
+.weather-desc{font-size:12px;color:var(--text2);}
+.weather-source{font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(0,212,255,0.1);color:var(--accent);}
+/* Batteries */
+.bat-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:4px;}
+.bat-cell{border-radius:6px;padding:6px 4px;text-align:center;background:var(--bg3);border:1px solid var(--border);}
+.bat-soc{font-size:12px;font-weight:600;font-family:monospace;}
+.bat-id{font-size:9px;color:var(--text2);margin-top:2px;}
+.bat-bar{height:3px;border-radius:2px;margin-top:4px;transition:width 0.5s;}
+/* Log */
+.log-list{display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto;}
+.log-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:7px;font-size:12px;}
+.log-time{font-family:monospace;color:var(--text2);min-width:72px;}
+.log-bat{color:var(--accent);font-weight:600;min-width:68px;}
+.log-action{padding:2px 8px;border-radius:4px;font-weight:600;font-size:11px;}
+.log-charge{background:rgba(0,230,118,0.15);color:var(--green);}
+.log-discharge{background:rgba(255,152,0,0.15);color:var(--orange);}
+.log-reason{color:var(--text2);flex:1;font-size:11px;}
+canvas{width:100%!important;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="1.8" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+    <div><div class="logo-text">VPP Orchestration Engine</div><div class="logo-sub">Virtual Power Plant — ML-Powered Distributed Energy Control</div></div>
+  </div>
+  <div class="header-right">
+    <div class="time-badge" id="sim-time">Day 1  08:00</div>
+    <div class="status-pill"><div class="dot" id="status-dot"></div><span id="status-lbl">Stopped</span></div>
+  </div>
+</div>
+<div class="controls">
+  <button class="btn btn-start" onclick="startSim()">▶ Start</button>
+  <button class="btn btn-stop" onclick="stopSim()">⏹ Stop</button>
+  <button class="btn btn-reset" onclick="resetSim()">↺ Reset</button>
+</div>
+<!-- Grid metrics -->
+<div class="grid4">
+  <div class="card">
+    <div class="card-title">Grid price</div>
+    <div class="metric-val yellow" id="m-price">—</div>
+    <div class="metric-unit">Rs / kWh</div>
+    <div class="price-indicator"><div class="price-bar"><div class="price-fill" id="price-fill" style="width:0%"></div></div><div class="price-label" id="price-lbl">—</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Solar forecast</div>
+    <div class="metric-val green" id="m-solar">—</div>
+    <div class="metric-unit">% generation</div>
+    <div class="weather-row"><div><div class="weather-temp" id="w-temp">—°C</div><div class="weather-desc" id="w-desc">—</div></div><span class="weather-source" id="w-source">sim</span></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Grid frequency</div>
+    <div class="metric-val" id="m-freq">—</div>
+    <div class="metric-unit">Hz (nominal 50)</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Local load</div>
+    <div class="metric-val orange" id="m-load">—</div>
+    <div class="metric-unit">kW demand</div>
+  </div>
+</div>
+<!-- Fleet metrics -->
+<div class="grid3">
+  <div class="card">
+    <div class="card-title">Fleet avg. SOC</div>
+    <div class="metric-val green" id="m-soc">—</div>
+    <div class="metric-unit">% state of charge</div>
+    <div class="action-row">
+      <div class="action-badge badge-charge"><span id="n-charge">0</span><br>Charging</div>
+      <div class="action-badge badge-discharge"><span id="n-discharge">0</span><br>Discharging</div>
+      <div class="action-badge badge-idle"><span id="n-idle">0</span><br>Idle</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Total revenue earned</div>
+    <div class="metric-val green" id="m-rev">₹0.00</div>
+    <div class="metric-unit">Rs from grid sales</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Available energy</div>
+    <div class="metric-val" id="m-energy">—</div>
+    <div class="metric-unit">kWh dispatchable</div>
+  </div>
+</div>
+<!-- ML Predictions -->
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-title">ML price prediction — next 6 hours <span style="color:var(--accent);font-size:9px;margin-left:8px;" id="ml-mae"></span></div>
+  <div class="ml-action-box hold" id="ml-box">
+    <div class="ml-action-title hold" id="ml-action">—</div>
+    <div class="ml-reason" id="ml-reason">Start simulation to see ML predictions...</div>
+  </div>
+  <div class="pred-grid" id="pred-grid"></div>
+</div>
+<!-- Charts -->
+<div class="grid2">
+  <div class="card"><div class="card-title">Grid price (last 2 hrs)</div><canvas id="price-chart" height="100"></canvas></div>
+  <div class="card"><div class="card-title">Revenue earned (last 2 hrs)</div><canvas id="rev-chart" height="100"></canvas></div>
+</div>
+<!-- Battery fleet -->
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-title">Battery fleet — 12 units</div>
+  <div class="bat-grid" id="bat-grid"></div>
+</div>
+<!-- Log -->
+<div class="card">
+  <div class="card-title">Recent control decisions</div>
+  <div class="log-list" id="log-list"><div style="color:var(--text2);font-size:13px;padding:8px 0;">Start simulation to see decisions...</div></div>
+</div>
+</div>
+<script>
+const socket = io();
+const chartOpts = {responsive:true,animation:{duration:300},plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#64748b',font:{size:11}}}}};
+const priceChart = new Chart(document.getElementById('price-chart'),{type:'line',data:{labels:[],datasets:[{data:[],borderColor:'#ffd740',backgroundColor:'rgba(255,215,64,0.08)',borderWidth:1.5,fill:true,tension:0.4,pointRadius:0}]},options:{...chartOpts,scales:{...chartOpts.scales,y:{...chartOpts.scales.y,min:0,max:15}}}});
+const revChart = new Chart(document.getElementById('rev-chart'),{type:'line',data:{labels:[],datasets:[{data:[],borderColor:'#00e676',backgroundColor:'rgba(0,230,118,0.08)',borderWidth:1.5,fill:true,tension:0.4,pointRadius:0}]},options:chartOpts});
+
+socket.on('status',d=>{document.getElementById('status-dot').classList.toggle('on',d.running);document.getElementById('status-lbl').textContent=d.running?'Running':'Stopped';});
+
+socket.on('update',d=>{
+  document.getElementById('sim-time').textContent=d.time;
+  const price=d.grid.price;
+  document.getElementById('m-price').textContent=price.toFixed(2);
+  document.getElementById('m-solar').textContent=d.grid.solar+'%';
+  document.getElementById('m-freq').textContent=d.grid.frequency.toFixed(2);
+  document.getElementById('m-load').textContent=d.grid.load.toFixed(1);
+  const pct=Math.min(100,(price/15)*100);
+  document.getElementById('price-fill').style.width=pct+'%';
+  if(price>=8){document.getElementById('m-price').className='metric-val red';document.getElementById('price-fill').style.background='#ff5252';document.getElementById('price-lbl').textContent='HIGH — sell';}
+  else if(price<=3){document.getElementById('m-price').className='metric-val green';document.getElementById('price-fill').style.background='#00e676';document.getElementById('price-lbl').textContent='LOW — buy';}
+  else{document.getElementById('m-price').className='metric-val yellow';document.getElementById('price-fill').style.background='#ffd740';document.getElementById('price-lbl').textContent='MEDIUM';}
+  // Weather
+  if(d.weather){
+    document.getElementById('w-temp').textContent=d.weather.temp+'°C';
+    document.getElementById('w-desc').textContent=d.weather.desc;
+    document.getElementById('w-source').textContent=d.weather.source==='live'?'LIVE':'sim';
+  }
+  document.getElementById('m-soc').textContent=d.fleet.avg_soc+'%';
+  document.getElementById('m-rev').textContent='₹'+d.summary.total_revenue_rs.toFixed(2);
+  document.getElementById('m-energy').textContent=d.summary.available_energy_kwh+' kWh';
+  document.getElementById('n-charge').textContent=d.actions.charging;
+  document.getElementById('n-discharge').textContent=d.actions.discharging;
+  document.getElementById('n-idle').textContent=d.actions.idle;
+  // Charts
+  priceChart.data.labels=d.price_history.map((_,i)=>i);
+  priceChart.data.datasets[0].data=d.price_history;
+  priceChart.update('none');
+  revChart.data.labels=d.revenue_history.map((_,i)=>i);
+  revChart.data.datasets[0].data=d.revenue_history;
+  revChart.update('none');
+  // ML
+  if(d.ml){
+    const act=d.ml.action.toLowerCase();
+    const box=document.getElementById('ml-box');
+    box.className='ml-action-box '+act;
+    const title=document.getElementById('ml-action');
+    title.className='ml-action-title '+act;
+    title.textContent=d.ml.action;
+    document.getElementById('ml-reason').textContent=d.ml.reason;
+    document.getElementById('ml-mae').textContent='MAE: Rs'+d.ml.mae+'/kWh';
+    const grid=document.getElementById('pred-grid');
+    grid.innerHTML='';
+    d.ml.predictions.forEach(p=>{
+      const c=document.createElement('div');
+      c.className='pred-cell '+(p.action==='SELL'?'sell':p.action==='BUY'?'buy':'');
+      const col=p.action==='SELL'?'#ff5252':p.action==='BUY'?'#00e676':'#ffd740';
+      c.innerHTML=`<div class="pred-hour">${p.hour}</div><div class="pred-price" style="color:${col}">₹${p.price}</div><div class="pred-badge ${p.action}">${p.action}</div><div class="pred-conf">${p.conf}%</div>`;
+      grid.appendChild(c);
+    });
+  }
+  // Batteries
+  const bg=document.getElementById('bat-grid');
+  bg.innerHTML='';
+  d.fleet.units.forEach(b=>{
+    const col=b.soc>60?'#00e676':b.soc>30?'#ffd740':'#ff5252';
+    const div=document.createElement('div');
+    div.className='bat-cell';
+    if(!b.online)div.style.opacity='0.3';
+    div.innerHTML=`<div class="bat-soc" style="color:${col}">${b.soc}%</div><div class="bat-id">${b.id}</div><div class="bat-bar" style="background:${col};width:${b.soc}%"></div>`;
+    bg.appendChild(div);
+  });
+  // Log
+  const ll=document.getElementById('log-list');
+  if(d.action_log.length>0){
+    ll.innerHTML='';
+    d.action_log.forEach(l=>{
+      const div=document.createElement('div');
+      div.className='log-item';
+      const ac=l.action==='charge'?'log-charge':'log-discharge';
+      div.innerHTML=`<span class="log-time">${l.time}</span><span class="log-bat">${l.battery}</span><span class="log-action ${ac}">${l.action}</span><span class="log-reason">${l.reason}</span>`;
+      ll.appendChild(div);
+    });
+  }
+});
+function startSim(){socket.emit('start');}
+function stopSim(){socket.emit('stop');}
+function resetSim(){socket.emit('reset');}
+</script>
+</body>
+</html>
