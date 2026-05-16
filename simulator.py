@@ -14,8 +14,7 @@ from algorithm import BatteryUnit, GridState
 # ── Config ────────────────────────────────────────────────────────────────────
 NUM_BATTERIES    = 12
 OPENWEATHER_KEY  = "c58eb065eb6b0a668bcb38715734c3f6"
-CITY             = "Kolkata" \
-""   # Change to your city!
+CITY             = "Mumbai"   # Change to your city!
 WEATHER_INTERVAL = 300        # Fetch real weather every 5 minutes
 
 
