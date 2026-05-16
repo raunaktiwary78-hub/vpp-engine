@@ -176,4 +176,6 @@ if __name__ == '__main__':
     print('  VPP Orchestration Engine (with ML)')
     print('  Open: http://localhost:5001')
     print('=' * 55)
-    socketio.run(app, debug=True, host='0.0.0.0', port=5001)
+    import os
+port = int(os.environ.get('PORT', 5001))
+socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
